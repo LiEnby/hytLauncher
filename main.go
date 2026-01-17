@@ -22,6 +22,7 @@ var(
 	wVersion = 1
 	wLatestVersions = map[string]int{}
 	wProgress = 0
+	wDisabled = false
 )
 
 
@@ -68,10 +69,10 @@ func patchLineMenu() base.Widget {
 					"pre-release",
 				},
 				Value: channelToVal(wChannel),
+				Disabled: wDisabled,
 				OnChange: func(v int) {
 					if wChannel != valToChannel(v) {
 						wChannel = valToChannel(v);
-						fmt.Printf("Channel: %s\n", wChannel);
 						updateWindow();
 					}
 				},
@@ -84,7 +85,10 @@ func patchLineMenu() base.Widget {
 
 
 func versionMenu() base.Widget {
-	versions := goey.SelectInput{OnChange: func(v int) { wVersion = v+1}};
+	versions := goey.SelectInput {
+		OnChange: func(v int) { wVersion = v+1},
+		Disabled: wDisabled,
+	};
 
 	for i := range wLatestVersions[wChannel] {
 		versions.Items = append(versions.Items, "Version "+strconv.Itoa(i+1)+ "");
@@ -109,6 +113,7 @@ func usernameBox() base.Widget {
 			&goey.TextInput{
 					Value: wUsername,
 					Placeholder: "Username",
+					Disabled: wDisabled,
 					OnChange: func(v string) {
 						wUsername = v;
 					},
@@ -151,11 +156,14 @@ func renderWindow() base.Widget {
 					},
 					&goey.Button{
 						Text: "Start Game",
+						Disabled: wDisabled,
 						OnClick: func() {
 							go func() {
+								wDisabled = true;
 								installJre(updateProgress);
 								installGame(wVersion, wChannel, updateProgress);
 								launchGame(wVersion, wChannel, wUsername, usernameToUuid(wUsername));
+								wDisabled = false;
 							}();
 						},
 					},
@@ -175,9 +183,6 @@ func main() {
 
 	wLatestVersions["release"] = findLatestVersionNoAuth(runtime.GOARCH, runtime.GOOS, "release");
 	wLatestVersions["pre-release"] = findLatestVersionNoAuth(runtime.GOARCH, runtime.GOOS, "pre-release");
-	//wLatestVersions["release"] = 3;
-	//wLatestVersions["pre-release"] = 7;
-
 
 	err := loop.Run(createWindow)
 	if err != nil {

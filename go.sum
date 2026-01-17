@@ -1,5 +1,3 @@
-bitbucket.org/rj/goey v0.9.0 h1:oQsiO3bRfazta9dxN+gcFqHDd9yFaw+cPn2QT5hW8uQ=
-bitbucket.org/rj/goey v0.9.0/go.mod h1:b8eQW5jA2H7NmlWj/80VtikvrLim9zVCulg8hZ10wuI=
 bitbucket.org/rj/goey v0.9.1-0.20250403173715-8582ce21557a h1:5NqdAb31B3mcLO4crbIEu7o6qlnU9DsfXrdsCal5wxk=
 bitbucket.org/rj/goey v0.9.1-0.20250403173715-8582ce21557a/go.mod h1:b8eQW5jA2H7NmlWj/80VtikvrLim9zVCulg8hZ10wuI=
 cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
