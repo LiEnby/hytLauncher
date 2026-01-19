@@ -48,11 +48,19 @@ void overwrite(csString* dst, csString* src) {
 }
 
 
-
 void allowOfflineInOnline(uint8_t* src) {
     int _ = 0;
-    // 48 8D ?? ?? ?? ?? ?? ?? ?? ?? 80 ?? ?? 40 00 0F
-    if (src[0] == 0x48 && src[1] == 0x8D && src[10] == 0x80 && src[13] == 0x40 && src[14] == 0x00 && src[15] == 0x0F) {
+
+    // linux:  48 8D ?? ?? E8 ?? ?? ?? 00 80 ?? ?? 00 0F 84
+    // windows: 48 8D ?? ?? ?? E8 ?? ?? ?? ?? 80 ?? ?? ?? 00 0F 84
+
+    if (src[0] == 0x48 &&
+        src[1] == 0x8D &&
+        src[5] == 0xE8 &&
+        src[10] == 0x80 &&
+        src[14] == 0x00 &&
+        src[15] == 0x0F) &&
+        src[16] == 0x84) {
 
         MEMORY_BASIC_INFORMATION mbi = { 0 };
         VirtualQuery(src, &mbi, sizeof(MEMORY_BASIC_INFORMATION));
