@@ -200,7 +200,7 @@ __attribute__((constructor)) int run() {
     // make local servers still run in offline mode
 		swap(&memory[i], L"authenticated", L"offline");
 
-		//if(swaps >= totalSwaps) break;
+		if(swaps >= totalSwaps) break;
 	}
 
 	printf("TOTAL SWAPS: %d\n", swaps);

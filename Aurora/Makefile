@@ -1,2 +1,2 @@
 Build/Aurora.so : linux.c
-	gcc $< -o $@ -O3 -fshort-wchar -shared
+	gcc $< -o $@ -Os -fPIC -nostdlib -fshort-wchar -shared
