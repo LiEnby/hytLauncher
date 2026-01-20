@@ -3,6 +3,8 @@
 #include <stdint.h>
 #include <assert.h>
 #include <wchar.h>
+#include <string.h>
+
 #include "shared.h"
 
 typedef struct PACK(csString {

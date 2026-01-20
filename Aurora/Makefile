@@ -1,16 +1,24 @@
-out=Build
-binary=$(out)/Aurora.so
+CC=gcc
+CFLAGS=-Os -fPIC -nostdlib -fshort-wchar -shared
+OBJ = cs_string.o shared.o patch.o
+OUTDIR=Build
+BINARY=$(OUTDIR)/Aurora.so
 
-all: setup $(binary)
+all: setup $(BINARY)
 
-$(binary): linux.c
-	gcc $< -o $@ -Os -fPIC -nostdlib -fshort-wchar -shared
+
+%.o: %.c $(DEPS)
+	$(CC) -c -o $@ $< $(CFLAGS)
+
+$(BINARY): $(OBJ)
+	$(CC) -o $@ $^ $(CFLAGS)
+
 
 
 .PHONY: setup
 setup:
-	mkdir -p $(out)
+	mkdir -p $(OUTDIR)
 
 .PHONY: clean
 clean:
-	rm -f $(binary) *.o
+	rm -f $(BINARY) *.o

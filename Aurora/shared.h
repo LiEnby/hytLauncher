@@ -2,6 +2,7 @@
 #define _SHARED_H 1
 #include <stdint.h>
 #include <wchar.h>
+#include <assert.h>
 
 static_assert(sizeof(wchar_t) == 2, "sizeof wchar is not 2 byte; try using -fshort-wchar");
 

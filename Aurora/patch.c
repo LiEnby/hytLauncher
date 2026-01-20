@@ -64,7 +64,7 @@ void allowOfflineInOnline(uint8_t* mem) {
 
 void swap(uint8_t* mem, csString* old, csString* new) {
     if (memcmp(mem, old, get_size_ptr(old)) == 0) {
-        overwrite(mem, new);
+        overwrite((csString*)mem, new);
         num_swaps++;
     }
 }
