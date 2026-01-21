@@ -32,3 +32,18 @@ or you can ``build-windows.bat`` within the VS2026 developer command prompt to d
 on linux, you need ``build-essential`` and then you can build "Aurora.so" using its Makefile;
 after that you can use ``go build .`` 
 or you can use ``build-linux.sh``
+
+# Alternative names
+
+'hytLauncher may not be the final name for this project ..'
+other names i considered using :
+
+- hyTLauncher
+- HytaleSP
+- AnjoCaido's Hytale Launcher
+- HytaleForFree.com
+
+in all seriousness i kind of would want something a bit original xS
+also this is not nessecarily planned to be a purely 'offline mode' launcher; 
+i also want to add "premium" support as well-
+mm the code for authentication flow is actually already here ..
