@@ -290,8 +290,15 @@ func launchGame(version int, channel string, username string, uuid string) error
 		os.Chmod(clientBinary, 0775);
 	}
 
-	if wCommune.Mode == "fakeonline" {
+	// remove fakeonline patch if present.
+	if runtime.GOOS == "windows" {
+		dllName := filepath.Join(filepath.Dir(clientBinary), "Secur32.dll");
+		os.Remove(dllName);
+	}
 
+	if wCommune.Mode == "fakeonline" { // start with fake online mode
+
+		// setup fake online patch
 		go runServer();
 
 		var dllName string;
@@ -315,6 +322,9 @@ func launchGame(version int, channel string, username string, uuid string) error
 		os.WriteFile(dllName, data, 0777);
 		defer os.Remove(dllName);
 
+		// start the client
+
+
 		e := exec.Command(clientBinary,
 			"--app-dir",
 			appDir,
@@ -333,7 +343,6 @@ func launchGame(version int, channel string, username string, uuid string) error
 			"--session-token",
 			generateSessionJwt("hytale:client"));
 
-		fmt.Printf("dll=%s\n", dllName);
 
 		if runtime.GOOS == "linux" {
 			os.Setenv("LD_PRELOAD", dllName);
@@ -354,11 +363,39 @@ func launchGame(version int, channel string, username string, uuid string) error
 		defer e.Process.Kill();
 		e.Process.Wait();
 
-	} else { // start in offline mode
+	} else if wCommune.Mode == "authenticated" { // start authenticated
+		atokens, ok := wCommune.AuthTokens.(accessTokens);
+		if !ok {
+			return errors.New("No auth token found.");
+		}
 
-		// remove fakeonline patch if present.
-		dllName := filepath.Join(filepath.Dir(clientBinary), "Secur32.dll");
-		os.Remove(dllName);
+		e := exec.Command(clientBinary,
+			"--app-dir",
+			appDir,
+			"--user-dir",
+			userDir,
+			"--java-exec",
+			javaBin,
+			"--auth-mode",
+			"authenticated",
+			"--uuid",
+			uuid,
+			"--name",
+			username,
+			"--identity-token",
+			atokens.IDToken,
+			"--session-token",
+			atokens.AccessToken);
+
+		err := e.Start();
+
+		if err != nil {
+			return err;
+		}
+
+		defer e.Process.Kill();
+		e.Process.Wait();
+	} else { // start in offline mode
 
 		e := exec.Command(clientBinary,
 			"--app-dir",

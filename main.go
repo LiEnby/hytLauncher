@@ -5,7 +5,9 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"image"
 	"os"
+	"path"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -24,6 +26,7 @@ type launcherCommune struct {
 	LatestVersions map[string]int `json:"last_version_scan_result"`
 	GameFolder string `json:"install_directory"`
 	Mode string `json:"mode"`
+	AuthTokens any `json:"token"`
 }
 
 
@@ -39,11 +42,24 @@ var(
 		SelectedVersion: 4,
 		GameFolder: DefaultGameFolder(),
 		Mode: "fakeonline",
+		AuthTokens: nil,
 	};
 	wProgress = 0
 	wDisabled = false
 )
 
+func doAuthentication() {
+	aTokens, err := getAuthTokens(wCommune.AuthTokens);
+
+	if err != nil {
+		showErrorDialog(fmt.Sprintf("Failed to get auth tokens: %s", err), "Auth failed.");
+		wCommune.AuthTokens = nil;
+		wCommune.Mode = "fakeonline";
+		loop.Do(func() error { updateWindow(); return nil; });
+	}
+
+	wCommune.AuthTokens = aTokens;
+}
 
 
 func checkForUpdates() {
@@ -283,12 +299,17 @@ func installLocation() base.Widget {
 	};
 }
 
+
 func modeSelector () base.Widget {
 	var v int;
-	if wCommune.Mode == "fakeonline" {
-		v = 1;
-	} else {
-		v = 0;
+
+	switch(wCommune.Mode) {
+		case "offline":
+			v = 0;
+		case "fakeonline":
+			v = 1;
+		case "authenticated":
+			v = 2;
 	}
 
 	return &goey.VBox {
@@ -299,15 +320,18 @@ func modeSelector () base.Widget {
 				Items: []string {
 					"Offline Mode",
 					"Fake Online Mode",
-					//"Authenticated",
+					"Authenticated",
 				},
 				Value: v,
 				Disabled: wDisabled,
 				OnChange: func(v int) {
-					if v == 1{
-						wCommune.Mode = "fakeonline";
-					} else {
-						wCommune.Mode = "offline";
+					switch(v) {
+						case 0:
+							wCommune.Mode = "offline";
+						case 1:
+							wCommune.Mode = "fakeonline";
+						case 2:
+							wCommune.Mode = "authenticated";
 					}
 				},
 			},
@@ -347,7 +371,7 @@ func updateProgress(done int64, total int64) {
 }
 
 func createWindow() error {
-	w, err := windows.NewWindow(LAUNCHER_NAME, renderWindow())
+	w, err := windows.NewWindow("HytaleSP", renderWindow())
 	if err != nil {
 		return err
 	}
@@ -360,6 +384,17 @@ func createWindow() error {
 	});
 
 	wMainWin = w;
+
+
+	f, err := embeddedImages.Open(path.Join("Resources", "icon.png"));
+	if err != nil {
+		return nil;
+	}
+	defer f.Close()
+
+	image, _, err := image.Decode(f)
+	w.SetIcon(image);
+
 	return nil
 }
 

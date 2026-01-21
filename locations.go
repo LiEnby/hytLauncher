@@ -7,6 +7,8 @@ import (
 	"strings"
 )
 
+// we will still call it this internally for now;
+// just for backwards compat with pre-installed versions.
 var LAUNCHER_NAME = "hytLauncher";
 
 func MainFolder() string {
@@ -31,7 +33,7 @@ func MainFolder() string {
 	if err != nil {
 		panic("Cannot find the home directory.");
 	}
-	oldFolder := filepath.Join(home, "hytLauncher");
+	oldFolder := filepath.Join(home, LAUNCHER_NAME);
 
 	// if not found then use the new "app data" directory;
 	_, err = os.Stat(oldFolder);
@@ -64,9 +66,6 @@ func GameFolder() string {
 
 	return wCommune.GameFolder;
 }
-
-
-
 
 func UserDataFolder() string {
 	return filepath.Join(MainFolder(), "userdata");

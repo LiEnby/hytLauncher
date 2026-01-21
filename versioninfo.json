@@ -20,12 +20,12 @@
     },
     "StringFileInfo": {
         "Comments": "",
-        "CompanyName": "Hypixel Studios",
+        "CompanyName": "HytaleSP",
         "FileDescription": "HytaleSP",
         "FileVersion": "v0.6.0.0",
-        "InternalName": "Hypixel Studios",
-        "LegalCopyright": "Hypixel Studios",
-        "LegalTrademarks": "Hypixel Studios",
+        "InternalName": "HytaleSP",
+        "LegalCopyright": "HytaleSP",
+        "LegalTrademarks": "HytaleSP",
         "OriginalFilename": "HytaleSP.exe",
         "PrivateBuild": "",
         "ProductName": "HytaleSP",
@@ -38,6 +38,6 @@
             "CharsetID": "04B0"
         }
     },
-    "IconPath": "icon.ico",
-    "ManifestPath": "windows.manifest"
+    "IconPath": "Resources/icon.ico",
+    "ManifestPath": "Resources/windows.manifest"
 }

@@ -10,9 +10,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -22,13 +20,41 @@ const OAUTH_URL = "https://oauth.accounts.hytale.com/oauth2/auth";
 const TOKEN_URL = "https://oauth.accounts.hytale.com/oauth2/token";
 const REDIRECT_URI = "https://accounts.hytale.com/consent/client";
 
+// couldnt figure this out for some reason
+
+/*func win32_FileProtocolHandler(url string) {
+
+	urlDll, err := syscall.LoadLibrary("url.dll");
+	defer syscall.FreeLibrary(urlDll);
+
+	if err != nil {
+		fmt.Printf("err %s", err);
+		return;
+	}
+
+	fileProtocolHandler, err := syscall.GetProcAddress(urlDll, "FileProtocolHandler");
+	if err != nil {
+		fmt.Printf("err %s", err);
+		return;
+	}
+
+	urlPtr, err := syscall.BytePtrFromString(url);
+	if err != nil {
+		fmt.Printf("err %s", err);
+		return;
+	}
+
+	syscall.SyscallN(fileProtocolHandler, uintptr(unsafe.Pointer(urlPtr)));
+}*/
 
 func openUrl(url string) {
+	fmt.Printf("Opening url: %s\n", url);
+
 	switch runtime.GOOS {
 		case "linux":
 			exec.Command("xdg-open", url).Start()
 		case "windows":
-			exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+			exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start();
 		case "darwin":
 			exec.Command("open", url).Start()
 		default:
@@ -94,16 +120,7 @@ func openOauthPage(portNum int) string  {
 }
 
 
-
-func logRequestHandler(h http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Printf("> %s %s\n", r.Method,  r.URL)
-		h.ServeHTTP(w, r)
-	})
-}
-
-
-func doOauth() (code string, verifier string) {
+func doOauth() (code string, verifier string, err error) {
 
 	c := make(chan string)
 
@@ -113,7 +130,7 @@ func doOauth() (code string, verifier string) {
 				code := req.URL.Query().Get("code");
 
 				w.WriteHeader(200);
-				w.Write([]byte("Trans Rights! (you are very cute, oh also authenticated.)"));
+				w.Write([]byte("Trans rights! (you are very cute, oh also authenticated ig?)"));
 
 				c <- code;
 
@@ -122,8 +139,7 @@ func doOauth() (code string, verifier string) {
 
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
-		fmt.Printf("Failed to listen error=%s\n", err)
-		os.Exit(1)
+		return "", "", err;
 	}
 	go server.Serve(ln)
 
@@ -132,7 +148,7 @@ func doOauth() (code string, verifier string) {
 	verifier = openOauthPage(port);
 	code = <-c;
 
-	return code, verifier;
+	return code, verifier, nil;
 }
 
 
@@ -159,7 +175,7 @@ func verifyToken(verifier string, code string) accessTokens {
 
 }
 
-func refreshToken(refreshToken string) accessTokens{
+func refreshToken(refreshToken string) (aToken accessTokens, err error){
 	authStr := "Basic " + base64.URLEncoding.EncodeToString([]byte("hytale-launcher:"));
 
 	data := url.Values{}
@@ -170,54 +186,40 @@ func refreshToken(refreshToken string) accessTokens{
 	req.Header.Add("Authorization", authStr);
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded");
 
-	resp, _ := http.DefaultClient.Do(req);
+	resp, err := http.DefaultClient.Do(req);
+
+	if err != nil {
+		return accessTokens{}, err;
+	}
+	if resp.StatusCode != 200 {
+		return accessTokens{}, fmt.Errorf("Getting auth token gave status code %d", resp.StatusCode);
+	}
 
 	newTokens := accessTokens{};
 	json.NewDecoder(resp.Body).Decode(&newTokens);
 
-	return newTokens;
+	return newTokens, nil;
 }
 
-func getTokenFilePath() string {
-	return filepath.Join(LauncherFolder(), "token.json");
-}
+func getAuthTokens(previousTokens any) (atoken accessTokens, err error) {
+	prevTokens, ok := previousTokens.(accessTokens);
 
-func hasSavedTokens() bool {
-	_, err := os.Stat(getTokenFilePath());
-	if err != nil {
-		return false;
-	}
-	return true;
-}
-
-func loadTokens() accessTokens {
-	jTokens, _ := os.ReadFile(getTokenFilePath());
-	tokens  := accessTokens{};
-
-	json.Unmarshal(jTokens, &tokens);
-	return tokens;
-}
-
-func saveTokens(tokens accessTokens) {
-	jTokens, _ := json.Marshal(tokens);
-
-	os.MkdirAll(filepath.Dir(getTokenFilePath()), 0666);
-	os.WriteFile(getTokenFilePath(), []byte(jTokens), 0666);
-}
-
-
-func getAuthTokens() accessTokens {
-
-	if hasSavedTokens() {
-		prevTokens := loadTokens();
-		accessTokens := refreshToken(prevTokens.RefreshToken);
-		saveTokens(accessTokens);
-		return accessTokens;
+	if ok {
+		fmt.Println("Refreshing previous tokens");
+		aToken, err := refreshToken(prevTokens.RefreshToken);
+		if err != nil {
+			return accessTokens{}, nil;
+		}
+		return aToken, nil;
 	} else {
-		code, verifier := doOauth();
-		accessTokens := verifyToken(verifier, code);
-		saveTokens(accessTokens);
-		return accessTokens;
+		fmt.Println("Getting new tokens");
+		code, verifier, err := doOauth();
+		if err != nil {
+			return accessTokens{}, err;
+		}
+
+		aToken := verifyToken(verifier, code);
+		return aToken, nil;
 	}
 }
 

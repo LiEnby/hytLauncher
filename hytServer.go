@@ -247,6 +247,13 @@ func handlePatches(w http.ResponseWriter, req *http.Request) {
 }
 
 
+func logRequestHandler(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Printf("> %s %s\n", r.Method,  r.URL)
+		h.ServeHTTP(w, r)
+	})
+}
+
 
 func runServer() {
 

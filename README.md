@@ -8,7 +8,7 @@ An alternative launcher for "Hytale" with a fairly streightforward "native" UI
  - Universal "online fix" or that works on all versions;
  - Access all "Supporter" and "Cursebreaker" cosmetic items.
  - Play local or online multiplayer
- - Completely standalone no butler or other external tools
+ - Completely standalone; a single executable- no butler or other external tools.
  - Fairly transparent online patch implementation.
  - Run offline and download without needing a hytale account.
  - Supports Windows 7+
@@ -78,6 +78,6 @@ but i wont remove the 'offline' or 'fakeonline' options for those who need them 
 
 # Screenshots 
 
-![hytLauncher ui itself](https://git.silica.codes/Li/HytaleSP/raw/branch/main/images/screenshot1.png)
-![skin selection screen](https://git.silica.codes/Li/HytaleSP/raw/branch/main/images/screenshot2.png)
+![hytLauncher ui itself](https://git.silica.codes/Li/HytaleSP/raw/branch/main/Images/screenshot1.png)
+![skin selection screen](https://git.silica.codes/Li/HytaleSP/raw/branch/main/Images/screenshot2.png)
 
