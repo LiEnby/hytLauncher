@@ -2,6 +2,7 @@ package main
 
 import (
 	"archive/zip"
+	"crypto/ed25519"
 	"crypto/md5"
 	"crypto/rand"
 	"encoding/base64"
@@ -24,6 +25,10 @@ const DEFAULT_COSMETICS = "{\"bodyCharacteristic\":[\"Default\",\"Muscular\"],\"
 
 var wSkin = "{\"bodyCharacteristic\":\"Default.11\",\"underwear\":\"Bra.Blue\",\"face\":\"Face_Neutral\",\"ears\":\"Ogre_Ears\",\"mouth\":\"Mouth_Makeup\",\"haircut\":\"SideBuns.Black\",\"facialHair\":null,\"eyebrows\":\"RoundThin.Black\",\"eyes\":\"Plain_Eyes.Green\",\"pants\":\"Icecream_Skirt.Strawberry\",\"overpants\":\"LongSocks_Bow.Lime\",\"undertop\":\"VNeck_Shirt.Black\",\"overtop\":\"NeckHigh_Savanna.Pink\",\"shoes\":\"Wellies.Orange\",\"headAccessory\":null,\"faceAccessory\":null,\"earAccessory\":null,\"skinFeature\":null,\"gloves\":null,\"cape\":null}"
 
+const SERVER_PROTOCOL =  "http://"
+const SERVER_URI = "127.0.0.1:59313"
+
+var wPublic, wPrivate, _ = ed25519.GenerateKey(rand.Reader);
 
 func getSkinJsonPath() string {
 	return filepath.Join(ServerDataFolder(), "skin.json");
@@ -246,18 +251,40 @@ func handlePatches(w http.ResponseWriter, req *http.Request) {
 	http.ServeFile(w, req, p);
 }
 
+func handleJwksRequest(w http.ResponseWriter, req *http.Request) {
+
+	keys := jwkKeyList{
+		Keys: []jwkKey {
+			{
+				Alg: "EdDSA",
+				Crv: "Ed25519",
+				Kid: "2025-10-01",
+				Kty: "OKP",
+				Use: "sig",
+				X: base64.RawURLEncoding.EncodeToString([]byte(wPublic)),
+			},
+		},
+	};
+
+	w.Header().Add("Content-Type", "application/json");
+	w.WriteHeader(200);
+
+	json.NewEncoder(w).Encode(keys);
+}
 
 func logRequestHandler(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Printf("> %s %s\n", r.Method,  r.URL)
+		fmt.Printf("> %s %s\n", r.Method,  r.URL);
 		h.ServeHTTP(w, r)
 	})
 }
 
 
+
 func runServer() {
 
-	mux := http.NewServeMux()
+	mux := http.NewServeMux();
+
 	// account-data.hytale.com
 	mux.HandleFunc("/my-account/game-profile", handleMyAccountGameProfile);
 	mux.HandleFunc("/my-account/skin", handleMyAccountSkin)
@@ -269,46 +296,54 @@ func runServer() {
 
 	// session.hytale.com
 	mux.HandleFunc("/game-session/child", handleSessionChild);
+	mux.HandleFunc("/.well-known/jwks.json", handleJwksRequest);
 
 	// tools.hytale.com
 	mux.HandleFunc("/bugs/create", handleBugReport);
 	mux.HandleFunc("/feedback/create", handleFeedbacksReport);
 
 
-	var handler  http.Handler = mux
-	handler = logRequestHandler(handler)
+	var handler  http.Handler = mux;
+	handler = logRequestHandler(handler);
 
-	http.ListenAndServe("127.0.0.1:59313", handler)
+	http.ListenAndServe(SERVER_URI, handler);
 }
 
-
-func fakeSign() string {
-	data := make([]byte, 0x40)
-	if _, err := rand.Read(data); err != nil {
-		panic(err)
-	}
-
-	return base64.URLEncoding.EncodeToString(data);
+func sign(j string) string {
+	sig := ed25519.Sign(wPrivate, []byte(j));
+	return base64.RawURLEncoding.EncodeToString(sig);
 }
 
-func generateSessionJwt(scope string) string {
+func make_jwt(body any) string {
 	head := jwtHeader{
 		Alg: "EdDSA",
 		Kid: "2025-10-01",
 		Typ: "JWT",
 	};
 
+	jHead, _ := json.Marshal(head);
+	jBody, _ := json.Marshal(body);
+
+
+	jwt := base64.RawURLEncoding.EncodeToString(jHead) + "." + base64.RawURLEncoding.EncodeToString(jBody)
+	jwt += "." + sign(jwt);
+	return jwt;
+}
+
+
+func generateSessionJwt(scope string) string {
+
 
 	sesTok := sessionToken {
 		Exp: int(time.Now().Add(time.Hour*10).Unix()),
 		Iat: int(time.Now().Unix()),
-		Iss: "https://sessions.hytale.com",
+		Iss: SERVER_PROTOCOL + SERVER_URI,
 		Jti: uuid.NewString(),
 		Scope: scope,
 		Sub: usernameToUuid(wCommune.Username),
 	};
 
-	return b64json(head) + "." + b64json(sesTok) + "." + fakeSign();
+	return make_jwt(sesTok);
 }
 
 
@@ -321,16 +356,11 @@ func usernameToUuid(username string) string {
 }
 
 func generateIdentityJwt(scope string) string {
-	head := jwtHeader{
-		Alg: "EdDSA",
-		Kid: "2025-10-01",
-		Typ: "JWT",
-	};
 
 	idTok := identityToken {
 		Exp: int(time.Now().Add(time.Hour*10).Unix()),
 		Iat: int(time.Now().Unix()),
-		Iss: "https://sessions.hytale.com",
+		Iss: SERVER_PROTOCOL + SERVER_URI,
 		Jti: uuid.NewString(),
 		Scope: scope,
 		Sub: usernameToUuid(wCommune.Username),
@@ -341,5 +371,5 @@ func generateIdentityJwt(scope string) string {
 		},
 	};
 
-	return b64json(head) + "." + b64json(idTok) + "." + fakeSign();
+	return make_jwt(idTok);
 }

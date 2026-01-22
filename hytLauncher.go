@@ -374,12 +374,16 @@ func launchGame(version int, channel string, username string, uuid string) error
 			return errors.New("No auth token found.");
 		}
 
-		launcherData, err := getLauncherData(*wCommune.AuthTokens, runtime.GOARCH, runtime.GOOS);
-		if(err != nil) {
-			return err;
+		if wCommune.Profiles == nil {
+			return errors.New("Could not find a profile");
 		}
 
-		newSess, err := getNewSession(*wCommune.AuthTokens, launcherData.Profiles[0].UUID);
+		// get currently selected profile
+
+		profileList := *wCommune.Profiles;
+		profile := profileList[wCommune.SelectedProfile];
+
+		newSess, err := getNewSession(*wCommune.AuthTokens, profile.UUID);
 		if(err != nil) {
 			return err;
 		}
@@ -394,13 +398,15 @@ func launchGame(version int, channel string, username string, uuid string) error
 			"--auth-mode",
 			"authenticated",
 			"--uuid",
-			launcherData.Profiles[0].UUID,
+			profile.UUID,
 			"--name",
-			launcherData.Profiles[0].Username,
+			profile.Username,
 			"--identity-token",
 			newSess.IdentityToken,
 			"--session-token",
 			newSess.SessionToken);
+
+		fmt.Printf("Running: %s\n", strings.Join(e.Args, " "))
 
 		err = e.Start();
 

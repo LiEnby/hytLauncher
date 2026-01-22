@@ -27,6 +27,8 @@ type launcherCommune struct {
 	GameFolder string `json:"install_directory"`
 	Mode string `json:"mode"`
 	AuthTokens *accessTokens `json:"token"`
+	Profiles *[]accountInfo `json:"profiles"`
+	SelectedProfile int `json:"selected_profile"`
 }
 
 
@@ -43,6 +45,8 @@ var(
 		GameFolder: DefaultGameFolder(),
 		Mode: "fakeonline",
 		AuthTokens: nil,
+		Profiles: nil,
+		SelectedProfile: 0,
 	};
 	wProgress = 0
 	wDisabled = false
@@ -55,32 +59,86 @@ func doAuthentication() {
 		showErrorDialog(fmt.Sprintf("Failed to get auth tokens: %s", err), "Auth failed.");
 		wCommune.AuthTokens = nil;
 		wCommune.Mode = "fakeonline";
-		loop.Do(func() error { updateWindow(); return nil; });
+		loop.Do(func() error {
+			updateWindow();
+			writeSettings();
+			return nil;
+		});
 	}
 
 	wCommune.AuthTokens = &aTokens;
+
+	// get profile list ..
+	authenticatedCheckForUpdatesAndGetProfileList();
+
 }
 
 
 func checkForUpdates() {
-	lastRelease := wCommune.LatestVersions["release"]
-	lastPreRelease := wCommune.LatestVersions["pre-release"]
+	if wCommune.Mode != "authenticated" {
+		lastRelease := wCommune.LatestVersions["release"]
+		lastPreRelease := wCommune.LatestVersions["pre-release"]
 
-	latestRelease := findLatestVersionNoAuth(lastRelease, runtime.GOARCH, runtime.GOOS, "release");
-	latestPreRelease := findLatestVersionNoAuth(lastPreRelease, runtime.GOARCH, runtime.GOOS, "pre-release");
+		latestRelease := findLatestVersionNoAuth(lastRelease, runtime.GOARCH, runtime.GOOS, "release");
+		latestPreRelease := findLatestVersionNoAuth(lastPreRelease, runtime.GOARCH, runtime.GOOS, "pre-release");
 
-	fmt.Printf("latestRelease: %d\n", latestRelease);
-	fmt.Printf("latestPreRelease: %d\n", latestPreRelease);
+		fmt.Printf("latestRelease: %d\n", latestRelease);
+		fmt.Printf("latestPreRelease: %d\n", latestPreRelease);
 
-	if latestRelease > lastRelease {
-		fmt.Printf("Found new release version: %d", latestRelease);
-		wCommune.LatestVersions["release"] = latestRelease;
+		if latestRelease > lastRelease {
+			fmt.Printf("Found new release version: %d\n", latestRelease);
+			wCommune.LatestVersions["release"] = latestRelease;
+		}
+
+		if latestPreRelease > lastPreRelease {
+			fmt.Printf("Found new pre-release version: %d\n", latestPreRelease);
+			wCommune.LatestVersions["pre-release"] = latestPreRelease;
+		}
+
+		if wMainWin != nil {
+			loop.Do(func() error {
+				updateWindow();
+				writeSettings();
+				return nil;
+			});
+		}
+	}
+}
+
+func authenticatedCheckForUpdatesAndGetProfileList() {
+	if wCommune.AuthTokens == nil {
+		return;
 	}
 
-	if latestPreRelease > lastPreRelease {
-		fmt.Printf("Found new pre-release version: %d", latestPreRelease);
-		wCommune.LatestVersions["pre-release"] = latestPreRelease;
+	lData, err := getLauncherData(*wCommune.AuthTokens, runtime.GOARCH, runtime.GOOS);
+
+	if err != nil {
+		showErrorDialog(fmt.Sprintf("Failed to get launcher data: %s", err), "Auth failed.");
+		wCommune.AuthTokens = nil;
+		wCommune.Mode = "fakeonline";
+		loop.Do(func() error {
+			updateWindow();
+			writeSettings();
+			return nil;
+		});
 	}
+
+	lastReleaseVersion := wCommune.LatestVersions["release"];
+	latestReleaseVersion := lData.Patchlines.Release.Newest;
+
+	lastPreReleaseVersion := wCommune.LatestVersions["pre-release"];
+	latestPreReleaseVersion := lData.Patchlines.PreRelease.Newest;
+
+	if lastReleaseVersion > latestReleaseVersion {
+		fmt.Printf("found new release: %d\n", lastReleaseVersion)
+		wCommune.LatestVersions["release"] = latestReleaseVersion;
+	}
+	if lastPreReleaseVersion > latestPreReleaseVersion {
+		fmt.Printf("found new release: %d\n", lastPreReleaseVersion)
+		wCommune.LatestVersions["pre-release"] = latestPreReleaseVersion;
+	}
+
+	wCommune.Profiles = &lData.Profiles;
 
 	if wMainWin != nil {
 		loop.Do(func() error {
@@ -101,7 +159,7 @@ func reAuthenticate() {
 		}
 
 		wCommune.AuthTokens = &aTokens;
-		writeSettings();
+		authenticatedCheckForUpdatesAndGetProfileList();
 	}
 }
 
@@ -354,6 +412,8 @@ func modeSelector () base.Widget {
 }
 
 func usernameBox() base.Widget {
+	usernameDisabled := wDisabled || wCommune.Mode == "authenticated";
+
 	return &goey.VBox{
 		AlignMain: goey.SpaceBetween,
 		Children: []base.Widget{
@@ -361,7 +421,7 @@ func usernameBox() base.Widget {
 			&goey.TextInput{
 					Value: wCommune.Username,
 					Placeholder: "Username",
-					Disabled: wDisabled,
+					Disabled: usernameDisabled,
 					OnChange: func(v string) {
 						wCommune.Username = v;
 					},
@@ -374,38 +434,66 @@ func loginBox() base.Widget {
 
 	logoutDisabled := wDisabled || wCommune.AuthTokens == nil;
 	loginDisabled := wDisabled || wCommune.AuthTokens != nil;
+	profileList := []string{};
 
 	if wCommune.Mode != "authenticated" {
 		return &goey.Empty{};
 	}
 
-	return &goey.HBox{
-		AlignCross: goey.CrossCenter,
-		AlignMain: goey.Homogeneous,
-		Children: []base.Widget {
-			&goey.Button{
-				Text: "Login (OAuth 2.0)",
-				Disabled: loginDisabled,
-				OnClick: func() {
-					atokens, err := getAuthTokens(nil);
-					if err != nil {
-						showErrorDialog(fmt.Sprintf("Failed to login: %s", err), "Login error");
-						return;
-					}
+	if wCommune.Profiles != nil {
+		for _, profile := range *wCommune.Profiles {
+			profileList = append(profileList, profile.Username);
+		}
+	}
 
-					wCommune.AuthTokens = &atokens;
-					writeSettings();
-					updateWindow();
+	profilesDisabled := wDisabled || wCommune.Profiles == nil;
+
+
+	return &goey.VBox {
+		AlignMain: goey.MainStart,
+		Children: []base.Widget {
+			&goey.HBox{
+				AlignCross: goey.CrossCenter,
+				AlignMain: goey.Homogeneous,
+				Children: []base.Widget {
+					&goey.Button{
+						Text: "Login (OAuth 2.0)",
+						Disabled: loginDisabled,
+						OnClick: func() {
+							atokens, err := getAuthTokens(nil);
+							if err != nil {
+								showErrorDialog(fmt.Sprintf("Failed to login: %s", err), "Login error");
+								return;
+							}
+
+							wCommune.AuthTokens = &atokens;
+							writeSettings();
+							updateWindow();
+						},
+					},
+					&goey.Button{
+						Text: "Logout",
+						Disabled: logoutDisabled,
+						OnClick: func() {
+							wCommune.AuthTokens = nil;
+							writeSettings();
+							updateWindow();
+						},
+					},
 				},
 			},
-			&goey.Button{
-				Text: "Logout",
-				Disabled: logoutDisabled,
-				OnClick: func() {
-					wCommune.AuthTokens = nil;
-					writeSettings();
-					updateWindow();
+			&goey.SelectInput{
+				Items: profileList,
+				OnChange: func(v int) {
+					wCommune.SelectedProfile = v;
+					wCommune.Username = profileList[v];
+					loop.Do(func() error {
+						updateWindow();
+						return nil;
+					});
 				},
+				Value: wCommune.SelectedProfile,
+				Disabled: profilesDisabled,
 			},
 		},
 	};

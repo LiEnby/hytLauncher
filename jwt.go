@@ -31,3 +31,15 @@ type profileInfo struct {
 	Entitlements []string `json:"entitlements"`
 	Skin         string   `json:"skin"`
 }
+
+type jwkKeyList struct {
+	Keys []jwkKey `json:"keys"`
+}
+type jwkKey struct {
+	Alg string `json:"alg"`
+	Crv string `json:"crv"`
+	Kid string `json:"kid"`
+	Kty string `json:"kty"`
+	Use string `json:"use"`
+	X   string `json:"x"`
+}

@@ -11,11 +11,18 @@ typedef struct swapEntry {
     csString old;
 } swapEntry;
 
+#ifdef _DEBUG
+#define print(...) printf(__VA_ARGS__)
+#else
+#define print(...) /**/
+#endif
 void overwrite(csString* old, csString* new) {    
     int prev = get_prot(old);
 
     if (change_prot((uintptr_t)old, get_rw_perms()) == 0) {            
         int sz = get_size_ptr(new);
+
+        print("overwriting %p with %p\n", old, new);
         memcpy(old, new, sz);
     }
 
@@ -46,9 +53,11 @@ void allowOfflineInOnline(uint8_t* mem) {
         // (or if theres ever a 0F 84 in any of the addresses .. hm but thats a chance of 2^16 :D)
 
         if (change_prot((uintptr_t)mem, get_rw_perms()) == 0) {
+            print("nopping debug check at %p\n", mem);
             for (; (mem[0] != 0x0F && mem[1] != 0x84); mem++); // locate the jz instruction ...
             memset(mem, 0x90, 0x6); // fill with NOP
 
+            print("nopping debug check at %p\n", mem);
             for (; (mem[0] != 0x0F && mem[1] != 0x84); mem++); // locate the next jz instruction ...
             memset(mem, 0x90, 0x6); // fill with NOP
         }
@@ -78,6 +87,12 @@ void changeServers() {
         {.old = make_csstr(L"https://tools."),        .new = make_csstr(L"http://127.0.0")},
         {.old = make_csstr(L"hytale.com"),            .new = make_csstr(L".1:59313")},
         {.old = make_csstr(L"authenticated"),         .new = make_csstr(L"insecure")},
+        
+        // pre release 10 onwards actually verifies the token you provide here if one is provided
+        // but it also validates that you have set valid arguments and will fail if its invalid
+        // so im setting this to an argument that doesn't do anything useful (disabling sentry telemetry thingy) 
+        {.old = make_csstr(L"--session-token=\""),    .new = make_csstr(L"--disable-sentry=\"")},
+        {.old = make_csstr(L"--identity-token=\""),   .new = make_csstr(L"--disable-sentry=\"")},
     };
 
     int totalSwaps = (sizeof(swaps) / sizeof(swapEntry));

@@ -1,7 +1,7 @@
 @echo off
 REM a script in PATH that sets up go windows 7 backport;
 REM feel free to not bother with this
-win7go
+call win7go
 
 REM msbuild the aurora.dll
 msbuild Aurora\Aurora.slnx /p:Configuration=Release
