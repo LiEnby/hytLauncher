@@ -208,26 +208,31 @@ func findClosestVersion(targetVersion int, channel string) int {
 }
 
 func installGame(version int, channel string, progress func(done int64, total int64)) error {
-	save := getVersionDownloadPath(0, version, channel);
-	unpack := getVersionInstallPath(version, channel);
-
-	closestVersion := findClosestVersion(version, channel);
-	srcPath := getVersionInstallPath(closestVersion, channel);
-
-	fmt.Printf("Closest version: %d\n", closestVersion);
-	fmt.Printf("Src Path: %s\n", srcPath);
 
 
 	if !isGameVersionInstalled(version, channel) {
+		closestVersion := findClosestVersion(version, channel);
+		srcPath := getVersionInstallPath(closestVersion, channel);
+
+		fmt.Printf("Closest version: %d\n", closestVersion);
+		fmt.Printf("Src Path: %s\n", srcPath);
+
 		downloadUrl := guessPatchUrlNoAuth(runtime.GOARCH, runtime.GOOS, channel, closestVersion, version);
+		downloadSig := guessPatchSigUrlNoAuth(runtime.GOARCH, runtime.GOOS, channel, closestVersion, version);
+
+		unpack := getVersionInstallPath(version, channel);
+		save := getVersionDownloadPath(closestVersion, version, channel);
 
 		// check if this patch exists, if not fallback on the 0 patch.
 		if !checkVerExist(closestVersion, version, runtime.GOARCH, runtime.GOOS, channel) {
 			downloadUrl = guessPatchUrlNoAuth(runtime.GOARCH, runtime.GOOS, channel, 0, version);
+			downloadSig = guessPatchSigUrlNoAuth(runtime.GOARCH, runtime.GOOS, channel, 0, version);
+			save = getVersionDownloadPath(0, version, channel);
 		}
 
-		err := download(downloadUrl, save, progress);
+		saveSig := save + ".pwr";
 
+		err := download(downloadUrl, save, progress);
 		defer os.Remove(save);
 		defer os.RemoveAll(getVersionDownloadsFolder());
 
@@ -235,9 +240,19 @@ func installGame(version int, channel string, progress func(done int64, total in
 			return err;
 		}
 
+		err = download(downloadSig, saveSig, progress);
+		defer os.Remove(saveSig);
+
+		if err != nil {
+			return err;
+		}
+
 		os.MkdirAll(unpack, 0775);
 
-		applyPatch(srcPath, unpack, save);
+		err = applyPatch(srcPath, unpack, save, &saveSig);
+		if err != nil {
+			return err;
+		}
 
 		return nil;
 	}

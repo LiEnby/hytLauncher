@@ -1,11 +1,11 @@
 package main
 
 import (
-	"fmt"
+	"context"
 
-	"github.com/itchio/headway/state"
 	"github.com/itchio/lake/pools/fspool"
 	"github.com/itchio/savior/filesource"
+	"github.com/itchio/wharf/pwr"
 	"github.com/itchio/wharf/pwr/bowl"
 	"github.com/itchio/wharf/pwr/patcher"
 
@@ -13,33 +13,55 @@ import (
 )
 
 
-func applyPatch(source string, destination string, patchFilename string) {
+func applyPatch(source string, destination string, patchFilename string, signatureName *string) error {
 
-	consumer := &state.Consumer {
-		OnProgress: func(progress float64) {
-			fmt.Printf("Progress: %d\n", int(progress));
-		},
-		OnProgressLabel: func(progress string) {
-			fmt.Printf("Progress: %s\n", progress);
-		},
+	patchReader, err := filesource.Open(patchFilename);
+	if err != nil {
+		return err;
 	}
-
-
-	patchReader, _ := filesource.Open(patchFilename);
 	defer patchReader.Close();
 
-	p, _ := patcher.New(patchReader, consumer);
+	p, err := patcher.New(patchReader, nil);
+	if err != nil {
+		return err;
+	}
 
 	targetPool := fspool.New(p.GetTargetContainer(), source);
 
-	b, _ := bowl.NewFreshBowl(bowl.FreshBowlParams{
+	b, err := bowl.NewFreshBowl(bowl.FreshBowlParams{
 		SourceContainer: p.GetSourceContainer(),
 		TargetContainer: p.GetTargetContainer(),
 		TargetPool: targetPool,
 		OutputFolder: destination,
 	});
 
-	// start the patch
-	p.Resume(nil, targetPool, b);
+	if err != nil {
+		return err;
+	}
 
+	err = p.Resume(nil, targetPool, b);
+	if err != nil {
+		return err;
+	}
+
+	if signatureName != nil {
+		sigSource, err := filesource.Open(*signatureName);
+		if err != nil {
+			return err;
+		}
+
+		signatureInfo, err := pwr.ReadSignature(context.Background(), sigSource);
+		err = pwr.AssertValid(destination, signatureInfo);
+		if err != nil {
+			return err;
+		}
+
+		err = pwr.AssertNoGhosts(destination, signatureInfo);
+		if err != nil {
+			return err;
+		}
+	}
+
+
+	return nil;
 }
