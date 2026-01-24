@@ -38,8 +38,8 @@ var(
 		Patchline: "release",
 		Username: "TransRights",
 		LatestVersions: map[string]int{
-			"release": 4,
-			"pre-release": 8,
+			"release": 5,
+			"pre-release": 12,
 		},
 		SelectedVersion: 4,
 		GameFolder: DefaultGameFolder(),
