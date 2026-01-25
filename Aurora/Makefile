@@ -1,8 +1,19 @@
-CC=gcc
-CFLAGS=-O3 -fPIC -nostdlib -fshort-wchar -shared
+CC = gcc
+OUTDIR = Build
+CFLAGS = -O3 -fPIC -fno-stack-protector -fshort-wchar -shared
 OBJ = cs_string.o shared.o patch.o
-OUTDIR=Build
-BINARY=$(OUTDIR)/Aurora.so
+
+ifeq ($(OS),Windows_NT)
+    DLL := .dll
+	DELCMD := del /Q /F /S
+	OBJ += exports.o
+else
+    DLL := .so
+	DELCMD := rm -rf
+	CFLAGS += -nostdlib
+endif
+
+BINARY=$(OUTDIR)/Aurora$(DLL)
 
 all: setup $(BINARY)
 
@@ -14,11 +25,11 @@ $(BINARY): $(OBJ)
 	$(CC) -o $@ $^ $(CFLAGS)
 
 
-
 .PHONY: setup
 setup:
-	mkdir -p $(OUTDIR)
+	-mkdir $(OUTDIR)
 
 .PHONY: clean
 clean:
-	rm -f $(BINARY) *.o
+	-$(DELCMD) *.o
+	-$(DELCMD) Build
