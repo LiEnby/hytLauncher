@@ -648,7 +648,7 @@ func createWindow() error {
 		return err
 	}
 
-	win.SetScroll(false, true);
+	win.SetScroll(false, false);
 
 	win.SetOnClosing(func() bool {
 		writeSettings();
